@@ -74,9 +74,14 @@ public sealed class BundleOrchestrator
             var dedup = _deduplicator.Deduplicate(allPackages);
             allWarnings.AddRange(dedup.Warnings);
             foreach (var conflict in dedup.Conflicts)
+            {
+                var chosenRepos = string.Join(", ", conflict.ChosenRepos);
+                var discarded = string.Join(" | ",
+                    conflict.DiscardedSources.Select(d => $"{d.Version} <- {string.Join(", ", d.Repos)}"));
                 Log(progress, LogEntry.Warn(
                     $"Konflikt: {conflict.PackageId} -> {conflict.ChosenVersion} " +
-                    $"(verworfen: {string.Join(", ", conflict.DiscardedVersions)})"));
+                    $"(aus: {chosenRepos}; verworfen: {discarded})"));
+            }
 
             Report(progress, BundlePhase.Restoring, 0.4, $"Erzeuge Anker-Projekt ({dedup.Packages.Count} Pakete)");
             if (Directory.Exists(config.WorkDirectory))

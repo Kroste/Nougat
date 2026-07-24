@@ -29,7 +29,11 @@ public class NugetConfigWriterTests : IDisposable
         var writer = new NugetConfigWriter();
         var conflicts = new[]
         {
-            new ConflictInfo("NLog", "6.1.4", new[] { "5.3.4" }),
+            new ConflictInfo(
+                "NLog",
+                "6.1.4",
+                new[] { "Kroste/DTM" },
+                new[] { new VersionSource("5.3.4", new[] { "Kroste/NetScanner" }) }),
         };
 
         writer.Write(_outDir, new[] { "Kroste/DTM", "Kroste/NetScanner" }, 42, 12_345_678, conflicts);
@@ -49,5 +53,8 @@ public class NugetConfigWriterTests : IDisposable
         readme.Should().Contain("42");
         readme.Should().Contain("NLog");
         readme.Should().Contain("6.1.4");
+        readme.Should().Contain("5.3.4");
+        readme.Should().Contain("<- Kroste/DTM");
+        readme.Should().Contain("<- Kroste/NetScanner");
     }
 }

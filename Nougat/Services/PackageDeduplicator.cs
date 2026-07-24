@@ -16,6 +16,7 @@ public sealed record DeduplicationResult(
 /// Fuehrt PackageReferences aus mehreren Repos zusammen. Bei Version-Konflikten
 /// gewinnt die "hoechste" Version (siehe <see cref="PackageVersionSelector"/>).
 /// PackageReferences OHNE Version werden verworfen (Warning).
+/// ConflictInfo listet pro Version die Herkunfts-Repos.
 /// </summary>
 public sealed class PackageDeduplicator
 {
@@ -47,28 +48,37 @@ public sealed class PackageDeduplicator
 
         foreach (var (id, refs) in byId)
         {
+            // Winner: hoechste Version quer ueber alle Vorkommen
             var winner = refs[0];
             foreach (var candidate in refs.Skip(1))
             {
                 var higher = PackageVersionSelector.PickHigher(winner.Version!, candidate.Version!);
                 winner = higher == candidate.Version ? candidate : winner;
             }
-
-            // Konflikt-Info sammeln (alle abweichenden Versionen)
-            var distinctVersions = refs
-                .Select(r => r.Version!)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
-
-            if (distinctVersions.Count > 1)
-            {
-                var discarded = distinctVersions
-                    .Where(v => !string.Equals(v, winner.Version, StringComparison.OrdinalIgnoreCase))
-                    .ToList();
-                conflicts.Add(new ConflictInfo(id, winner.Version!, discarded));
-            }
-
             picked.Add(winner);
+
+            // Konflikt-Diagnostik: pro Version die eindeutigen Source-Repos zusammenfassen
+            var byVersion = refs
+                .GroupBy(r => r.Version!, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(
+                    g => g.Key,
+                    g => (IReadOnlyList<string>)g.Select(r => r.SourceRepo)
+                                                 .Distinct(StringComparer.OrdinalIgnoreCase)
+                                                 .OrderBy(s => s, StringComparer.OrdinalIgnoreCase)
+                                                 .ToList(),
+                    StringComparer.OrdinalIgnoreCase);
+
+            if (byVersion.Count > 1)
+            {
+                var chosenRepos = byVersion[winner.Version!];
+                var discarded = byVersion
+                    .Where(kv => !string.Equals(kv.Key, winner.Version, StringComparison.OrdinalIgnoreCase))
+                    .OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase)
+                    .Select(kv => new VersionSource(kv.Key, kv.Value))
+                    .ToList();
+
+                conflicts.Add(new ConflictInfo(id, winner.Version!, chosenRepos, discarded));
+            }
         }
 
         return new DeduplicationResult(picked, conflicts, warnings);

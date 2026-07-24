@@ -3,10 +3,15 @@ using System.Collections.Generic;
 
 namespace Nougat.Models;
 
+/// <summary>Eine konkrete Version + die Repos, in denen sie gepinnt war.</summary>
+public sealed record VersionSource(string Version, IReadOnlyList<string> Repos);
+
+/// <summary>Diagnostik zu einem Package, das in verschiedenen Repos in verschiedenen Versionen referenziert wurde.</summary>
 public sealed record ConflictInfo(
     string PackageId,
     string ChosenVersion,
-    IReadOnlyList<string> DiscardedVersions
+    IReadOnlyList<string> ChosenRepos,
+    IReadOnlyList<VersionSource> DiscardedSources
 );
 
 /// <summary>Ergebnis eines Bundle-Laufs.</summary>

@@ -66,7 +66,12 @@ public sealed class NugetConfigWriter
         {
             sb.AppendLine("Version-Konflikte (hoechste Version gewaehlt):");
             foreach (var c in conflicts.OrderBy(c => c.PackageId, StringComparer.OrdinalIgnoreCase))
-                sb.AppendLine($"  - {c.PackageId} = {c.ChosenVersion}  (verworfen: {string.Join(", ", c.DiscardedVersions)})");
+            {
+                sb.AppendLine($"  {c.PackageId}");
+                sb.AppendLine($"    gewaehlt:  {c.ChosenVersion}  <- {string.Join(", ", c.ChosenRepos)}");
+                foreach (var d in c.DiscardedSources)
+                    sb.AppendLine($"    verworfen: {d.Version}  <- {string.Join(", ", d.Repos)}");
+            }
             sb.AppendLine();
         }
 
