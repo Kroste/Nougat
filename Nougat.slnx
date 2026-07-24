@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="Nougat/Nougat.csproj" />
+  <Project Path="Nougat.Tests/Nougat.Tests.csproj" />
+</Solution>

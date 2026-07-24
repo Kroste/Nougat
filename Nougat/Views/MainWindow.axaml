@@ -1,0 +1,170 @@
+<chrome:ChromeWindow xmlns="https://github.com/avaloniaui"
+                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                     xmlns:chrome="using:Nougat.Chrome"
+                     xmlns:ctrl="using:Nougat.Controls"
+                     xmlns:vm="using:Nougat.ViewModels"
+                     xmlns:models="using:Nougat.Models"
+                     mc:Ignorable="d"
+                     x:Class="Nougat.Views.MainWindow"
+                     x:DataType="vm:MainWindowViewModel"
+                     Title="Nougat"
+                     Width="1100" Height="720"
+                     MinWidth="880" MinHeight="560"
+                     Background="{DynamicResource KrosteBackgroundBrush}">
+
+    <Design.DataContext>
+        <vm:MainWindowViewModel />
+    </Design.DataContext>
+
+    <DockPanel>
+        <!-- Titelleiste -->
+        <ctrl:TitleBar DockPanel.Dock="Top" Title="{Binding Title}" />
+
+        <!-- Menuebar -->
+        <Border DockPanel.Dock="Top"
+                Background="{DynamicResource KrosteTitleBarBrush}"
+                BorderThickness="0,0,0,1"
+                BorderBrush="#22262B">
+            <StackPanel Orientation="Horizontal" Margin="8,0">
+                <Button Content="Einstellungen" Classes="menu" Click="OnSettingsClick"
+                        Background="Transparent" Foreground="White" Padding="12,6" />
+                <Button Content=".NET SDK installieren" Classes="menu" Click="OnInstallSdkClick"
+                        Background="Transparent" Foreground="White" Padding="12,6" />
+                <Button Content="Ueber" Classes="menu" Click="OnAboutClick"
+                        Background="Transparent" Foreground="White" Padding="12,6" />
+            </StackPanel>
+        </Border>
+
+        <!-- Footer -->
+        <Border DockPanel.Dock="Bottom"
+                Background="{DynamicResource KrosteTitleBarBrush}"
+                BorderThickness="0,1,0,0"
+                BorderBrush="#22262B"
+                Padding="12,8">
+            <Grid ColumnDefinitions="*,Auto,Auto">
+                <StackPanel Grid.Column="0" Orientation="Vertical">
+                    <TextBlock Text="Zielordner:" Foreground="{DynamicResource KrosteMutedBrush}" FontSize="11" />
+                    <TextBox Text="{Binding OutputDirectory, Mode=TwoWay}"
+                             MinWidth="380"
+                             MaxWidth="620"
+                             HorizontalAlignment="Left"
+                             Background="{DynamicResource KrosteSurfaceBrush}"
+                             Foreground="White" />
+                </StackPanel>
+                <Button Grid.Column="1" Content="Abbrechen"
+                        Command="{Binding CancelBuildCommand}"
+                        IsEnabled="{Binding IsBusy}"
+                        Margin="8,0,8,0" Padding="14,6" />
+                <Button Grid.Column="2" Content="Bundle bauen"
+                        Command="{Binding BuildBundleCommand}"
+                        Classes="accent"
+                        MinWidth="160" />
+            </Grid>
+        </Border>
+
+        <!-- Progress / Status -->
+        <Border DockPanel.Dock="Bottom"
+                Background="{DynamicResource KrosteBackgroundBrush}"
+                Padding="12,4">
+            <StackPanel Orientation="Vertical">
+                <TextBlock Text="{Binding StatusText}"
+                           Foreground="{DynamicResource KrosteGoldBrush}"
+                           Margin="0,0,0,4" />
+                <ProgressBar Minimum="0" Maximum="1"
+                             Value="{Binding Progress}"
+                             Height="6"
+                             Foreground="{DynamicResource KrosteAccentBrush}"
+                             Background="{DynamicResource KrosteSurfaceBrush}" />
+            </StackPanel>
+        </Border>
+
+        <!-- Hauptbereich: links Repos, rechts Log -->
+        <Grid ColumnDefinitions="300,*" Margin="0">
+            <!-- Repo-Liste -->
+            <Border Grid.Column="0"
+                    Background="{DynamicResource KrosteTitleBarBrush}"
+                    BorderThickness="0,0,1,0"
+                    BorderBrush="#22262B">
+                <DockPanel>
+                    <Grid DockPanel.Dock="Top" Margin="12,10" ColumnDefinitions="*,Auto">
+                        <TextBlock Grid.Column="0" Text="Repositories"
+                                   Foreground="{DynamicResource KrosteGoldBrush}"
+                                   FontWeight="SemiBold" VerticalAlignment="Center" />
+                        <Button Grid.Column="1" Content="Aktualisieren"
+                                Command="{Binding RefreshReposCommand}"
+                                Background="{DynamicResource KrosteSurfaceBrush}"
+                                Foreground="White" Padding="8,3" />
+                    </Grid>
+                    <TextBlock DockPanel.Dock="Top"
+                               Text="{Binding RepoListStatus}"
+                               Foreground="{DynamicResource KrosteMutedBrush}"
+                               FontSize="11" Margin="12,0,12,6" />
+                    <TextBlock DockPanel.Dock="Bottom"
+                               Text="{Binding SelectedCount, StringFormat={}{0} selektiert}"
+                               Foreground="{DynamicResource KrosteAccentBrush}"
+                               FontWeight="SemiBold" Margin="12,6" />
+
+                    <ScrollViewer>
+                        <ItemsControl ItemsSource="{Binding Repos}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:RepoItemViewModel">
+                                    <Border Padding="12,4" Background="Transparent">
+                                        <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}">
+                                            <StackPanel Orientation="Vertical">
+                                                <TextBlock Text="{Binding Name}"
+                                                           Foreground="White" />
+                                                <TextBlock Text="{Binding Description}"
+                                                           Foreground="{DynamicResource KrosteMutedBrush}"
+                                                           FontSize="10"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           MaxWidth="220" />
+                                            </StackPanel>
+                                        </CheckBox>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+
+            <!-- Log-Panel -->
+            <Border Grid.Column="1"
+                    Background="{DynamicResource KrosteBackgroundBrush}"
+                    Padding="12,10">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="Log"
+                               Foreground="{DynamicResource KrosteGoldBrush}"
+                               FontWeight="SemiBold" Margin="0,0,0,6" />
+                    <ScrollViewer x:Name="LogScroll" HorizontalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding LogEntries}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="models:LogEntry">
+                                    <StackPanel Orientation="Horizontal"
+                                                Spacing="8">
+                                        <TextBlock Text="{Binding Timestamp, StringFormat=HH:mm:ss}"
+                                                   FontFamily="Cascadia Code, Consolas, monospace"
+                                                   FontSize="12"
+                                                   Foreground="{DynamicResource KrosteMutedBrush}" />
+                                        <TextBlock Text="{Binding Severity}"
+                                                   FontFamily="Cascadia Code, Consolas, monospace"
+                                                   FontSize="12"
+                                                   MinWidth="46"
+                                                   Foreground="{DynamicResource KrosteGoldBrush}" />
+                                        <TextBlock Text="{Binding Message}"
+                                                   FontFamily="Cascadia Code, Consolas, monospace"
+                                                   FontSize="12"
+                                                   Foreground="White"
+                                                   TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+        </Grid>
+    </DockPanel>
+</chrome:ChromeWindow>

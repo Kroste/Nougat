@@ -1,0 +1,154 @@
+using System;
+using System.Collections.Generic;
+using System.Net;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using Nougat.Models;
+
+namespace Nougat.Services;
+
+public class GithubApiException : Exception
+{
+    public GithubApiException(string message) : base(message) { }
+    public GithubApiException(string message, Exception inner) : base(message, inner) { }
+}
+
+public sealed class GithubRateLimitedException : GithubApiException
+{
+    public GithubRateLimitedException(string message) : base(message) { }
+}
+
+/// <summary>
+/// Duennschichtiger Wrapper um die GitHub REST-API.
+/// Named HttpClient "github" liefert User-Agent, System-Proxy und optional das Bearer-Token.
+/// </summary>
+public sealed class GithubRepoService
+{
+    public const string HttpClientName = "github";
+    private const string ApiRoot = "https://api.github.com";
+    private const string RawRoot = "https://raw.githubusercontent.com";
+
+    private static readonly JsonSerializerOptions _json = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+        PropertyNameCaseInsensitive = true,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+    };
+
+    private readonly IHttpClientFactory _factory;
+    private readonly ILogger<GithubRepoService> _logger;
+
+    public GithubRepoService(IHttpClientFactory factory, ILogger<GithubRepoService> logger)
+    {
+        _factory = factory;
+        _logger = logger;
+    }
+
+    public async Task<List<RepoInfo>> ListUserReposAsync(string userName, CancellationToken ct = default)
+    {
+        var result = new List<RepoInfo>();
+        var client = _factory.CreateClient(HttpClientName);
+
+        for (var page = 1; ; page++)
+        {
+            var url = $"{ApiRoot}/users/{userName}/repos?per_page=100&type=owner&page={page}";
+            using var req = new HttpRequestMessage(HttpMethod.Get, url);
+            req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+
+            using var resp = await client.SendAsync(req, ct).ConfigureAwait(false);
+            LogRateLimit(resp);
+
+            if ((int)resp.StatusCode == 403 && resp.Headers.TryGetValues("x-ratelimit-remaining", out var vals))
+            {
+                foreach (var v in vals)
+                    if (v == "0")
+                        throw new GithubRateLimitedException(
+                            "GitHub-API-Rate-Limit erreicht. PAT in den Einstellungen setzen erhoeht das Limit auf 5000/h.");
+            }
+
+            if (!resp.IsSuccessStatusCode)
+            {
+                var body = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                throw new GithubApiException($"GitHub-API-Fehler {(int)resp.StatusCode}: {body}");
+            }
+
+            await using var stream = await resp.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+            var pageItems = await JsonSerializer.DeserializeAsync<List<RepoInfo>>(stream, _json, ct).ConfigureAwait(false);
+            if (pageItems is null || pageItems.Count == 0) break;
+
+            result.AddRange(pageItems);
+            if (pageItems.Count < 100) break;
+        }
+
+        _logger.LogInformation("GitHub: {Count} Repos fuer User {User} geladen", result.Count, userName);
+        return result;
+    }
+
+    /// <summary>Liefert alle Pfade im Default-Branch (rekursiv, Bloburl).</summary>
+    public async Task<List<string>> ListRepoTreeAsync(string ownerRepo, string branch, CancellationToken ct = default)
+    {
+        var client = _factory.CreateClient(HttpClientName);
+        var url = $"{ApiRoot}/repos/{ownerRepo}/git/trees/{branch}?recursive=1";
+        using var req = new HttpRequestMessage(HttpMethod.Get, url);
+        req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+
+        using var resp = await client.SendAsync(req, ct).ConfigureAwait(false);
+        LogRateLimit(resp);
+
+        if (resp.StatusCode == HttpStatusCode.NotFound)
+        {
+            _logger.LogWarning("Repo-Tree nicht gefunden: {Repo}@{Branch}", ownerRepo, branch);
+            return [];
+        }
+        if (!resp.IsSuccessStatusCode)
+        {
+            var body = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            throw new GithubApiException($"Repo-Tree {(int)resp.StatusCode}: {body}");
+        }
+
+        var payload = await resp.Content.ReadFromJsonAsync<TreeResponse>(_json, ct).ConfigureAwait(false)
+                     ?? throw new GithubApiException("Leere Tree-Antwort");
+        var paths = new List<string>(payload.Tree.Count);
+        foreach (var entry in payload.Tree)
+            if (entry.Type == "blob")
+                paths.Add(entry.Path);
+        return paths;
+    }
+
+    /// <summary>Laedt eine Datei aus dem Repo als Text (Raw-URL, kein API-Rate-Limit).</summary>
+    public async Task<string> GetRawFileAsync(string ownerRepo, string branch, string path, CancellationToken ct = default)
+    {
+        var client = _factory.CreateClient(HttpClientName);
+        var url = $"{RawRoot}/{ownerRepo}/{branch}/{path}";
+        using var resp = await client.GetAsync(url, ct).ConfigureAwait(false);
+        if (!resp.IsSuccessStatusCode)
+            throw new GithubApiException($"Raw-Fetch {(int)resp.StatusCode}: {url}");
+        return await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+    }
+
+    private void LogRateLimit(HttpResponseMessage resp)
+    {
+        if (resp.Headers.TryGetValues("x-ratelimit-remaining", out var rem) &&
+            resp.Headers.TryGetValues("x-ratelimit-limit", out var lim))
+        {
+            _logger.LogTrace("GitHub-RateLimit: {Rem}/{Lim}", string.Join(",", rem), string.Join(",", lim));
+        }
+    }
+
+    private sealed class TreeResponse
+    {
+        public List<TreeEntry> Tree { get; set; } = [];
+    }
+
+    private sealed class TreeEntry
+    {
+        public string Path { get; set; } = "";
+        public string Type { get; set; } = "";
+    }
+}

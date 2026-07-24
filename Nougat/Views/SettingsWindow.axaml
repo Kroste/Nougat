@@ -1,0 +1,83 @@
+<chrome:ChromeWindow xmlns="https://github.com/avaloniaui"
+                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                     xmlns:chrome="using:Nougat.Chrome"
+                     xmlns:ctrl="using:Nougat.Controls"
+                     xmlns:vm="using:Nougat.ViewModels"
+                     x:Class="Nougat.Views.SettingsWindow"
+                     x:DataType="vm:SettingsWindowViewModel"
+                     Title="Einstellungen"
+                     Width="640" Height="560"
+                     MinWidth="520" MinHeight="440"
+                     WindowStartupLocation="CenterOwner"
+                     Background="{DynamicResource KrosteBackgroundBrush}">
+    <DockPanel>
+        <ctrl:TitleBar DockPanel.Dock="Top" Title="Einstellungen" />
+
+        <Border DockPanel.Dock="Bottom"
+                Background="{DynamicResource KrosteTitleBarBrush}"
+                Padding="12,8">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                <Button Content="Abbrechen" Command="{Binding CancelCommand}" Padding="14,6" />
+                <Button Content="Speichern" Command="{Binding SaveCommand}" Classes="accent" MinWidth="120" />
+            </StackPanel>
+        </Border>
+
+        <ScrollViewer Padding="24,16">
+            <StackPanel Spacing="14">
+                <TextBlock Text="GitHub Personal Access Token (optional)"
+                           Foreground="{DynamicResource KrosteGoldBrush}"
+                           FontWeight="SemiBold" />
+                <TextBox Text="{Binding Pat, Mode=TwoWay}"
+                         PasswordChar="*"
+                         Background="{DynamicResource KrosteSurfaceBrush}"
+                         Foreground="White"
+                         PlaceholderText="ghp_..." />
+                <TextBlock Text="Ohne PAT: 60 API-Requests pro Stunde. Mit PAT: 5000/h. Wird verschluesselt gespeichert."
+                           Foreground="{DynamicResource KrosteMutedBrush}"
+                           TextWrapping="Wrap" FontSize="11" />
+
+                <Separator Background="#22262B" />
+
+                <TextBlock Text="Zielordner (NuGet-Local)"
+                           Foreground="{DynamicResource KrosteGoldBrush}"
+                           FontWeight="SemiBold" />
+                <TextBox Text="{Binding OutputDirectory, Mode=TwoWay}"
+                         Background="{DynamicResource KrosteSurfaceBrush}"
+                         Foreground="White" />
+
+                <TextBlock Text="Arbeitsverzeichnis (Restore-Cache)"
+                           Foreground="{DynamicResource KrosteGoldBrush}"
+                           FontWeight="SemiBold" />
+                <TextBox Text="{Binding WorkDirectory, Mode=TwoWay}"
+                         Background="{DynamicResource KrosteSurfaceBrush}"
+                         Foreground="White" />
+
+                <Separator Background="#22262B" />
+
+                <TextBlock Text="Target-RIDs (fuer dotnet restore --runtime)"
+                           Foreground="{DynamicResource KrosteGoldBrush}"
+                           FontWeight="SemiBold" />
+                <StackPanel Orientation="Horizontal" Spacing="16">
+                    <CheckBox Content="win-x64" IsChecked="{Binding RidWinX64, Mode=TwoWay}" Foreground="White" />
+                    <CheckBox Content="linux-x64" IsChecked="{Binding RidLinuxX64, Mode=TwoWay}" Foreground="White" />
+                    <CheckBox Content="osx-x64" IsChecked="{Binding RidOsxX64, Mode=TwoWay}" Foreground="White" />
+                </StackPanel>
+
+                <Separator Background="#22262B" />
+
+                <TextBlock Text="Repo-Cache-TTL (Stunden)"
+                           Foreground="{DynamicResource KrosteGoldBrush}"
+                           FontWeight="SemiBold" />
+                <NumericUpDown Value="{Binding RepoCacheTtlHours, Mode=TwoWay}"
+                               Minimum="1" Maximum="168" Increment="1"
+                               FormatString="0"
+                               Background="{DynamicResource KrosteSurfaceBrush}"
+                               Foreground="White" />
+
+                <CheckBox Content="Archivierte Repos anzeigen"
+                          IsChecked="{Binding ShowArchivedRepos, Mode=TwoWay}"
+                          Foreground="White" />
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+</chrome:ChromeWindow>

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Nougat
+Comment=Offline-NuGet-Bundle-Builder fuer Kroste-Repos
+Exec=Nougat
+Icon=nougat
+Type=Application
+Categories=Development;
+Terminal=false

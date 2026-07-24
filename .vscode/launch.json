@@ -1,0 +1,24 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Nougat (Debug)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/Nougat/bin/Debug/net10.0/Nougat.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/Nougat",
+      "console": "internalConsole",
+      "stopAtEntry": false,
+      "env": {
+        "DOTNET_ENVIRONMENT": "Development"
+      }
+    },
+    {
+      "name": "Nougat (Attach)",
+      "type": "coreclr",
+      "request": "attach"
+    }
+  ]
+}
