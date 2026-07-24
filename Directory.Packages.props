@@ -19,7 +19,7 @@
 
     <!-- Logging -->
     <PackageVersion Include="NLog" Version="6.1.4" />
-    <PackageVersion Include="NLog.Extensions.Logging" Version="6.0.3" />
+    <PackageVersion Include="NLog.Extensions.Logging" Version="6.1.4" />
 
     <!-- Nougat-spezifisch -->
     <PackageVersion Include="Semver" Version="3.0.0" />
