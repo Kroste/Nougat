@@ -9,7 +9,9 @@ namespace Nougat.Services;
 
 /// <summary>
 /// Fuehrt "dotnet restore" fuer das Anker-Projekt aus - portable + je RID.
-/// Live-Ausgabe wird an das UI weitergereicht.
+/// Live-Ausgabe geht ans UI und parallel als Debug/Warn ins NLog-File.
+/// Bei Fehlschlag werden die letzten Ausgabezeilen als Error ins Log geschrieben,
+/// damit die tatsaechliche Ursache auch offline nachvollziehbar ist.
 /// </summary>
 public sealed class RestoreRunner
 {
@@ -30,35 +32,63 @@ public sealed class RestoreRunner
         Action<ProgressLine>? onLine,
         CancellationToken ct = default)
     {
-        // Portable Restore
-        _logger.LogInformation("Restore portable ...");
-        var portable = await _processRunner.RunAsync(
-            dotnetPath,
-            ["restore", anchorPath, "--packages", packagesDirectory, "--verbosity", "minimal"],
-            onLine, ct: ct
-        ).ConfigureAwait(false);
-        if (portable.ExitCode != 0)
+        if (!await RunPhaseAsync(
+                "portable",
+                dotnetPath,
+                ["restore", anchorPath, "--packages", packagesDirectory, "--verbosity", "minimal"],
+                onLine, ct).ConfigureAwait(false))
         {
-            _logger.LogError("Portable restore fehlgeschlagen (ExitCode {Code})", portable.ExitCode);
             return false;
         }
 
-        // Je RID
         foreach (var rid in targetRids)
         {
-            _logger.LogInformation("Restore fuer RID {Rid} ...", rid);
-            var ridResult = await _processRunner.RunAsync(
-                dotnetPath,
-                ["restore", anchorPath, "--packages", packagesDirectory, "--runtime", rid, "--verbosity", "minimal"],
-                onLine, ct: ct
-            ).ConfigureAwait(false);
-            if (ridResult.ExitCode != 0)
+            if (!await RunPhaseAsync(
+                    rid,
+                    dotnetPath,
+                    ["restore", anchorPath, "--packages", packagesDirectory, "--runtime", rid, "--verbosity", "minimal"],
+                    onLine, ct).ConfigureAwait(false))
             {
-                _logger.LogError("Restore fuer RID {Rid} fehlgeschlagen (ExitCode {Code})", rid, ridResult.ExitCode);
                 return false;
             }
         }
 
+        return true;
+    }
+
+    private async Task<bool> RunPhaseAsync(
+        string phase,
+        string dotnetPath,
+        string[] args,
+        Action<ProgressLine>? onLine,
+        CancellationToken ct)
+    {
+        _logger.LogInformation("Restore {Phase} ...", phase);
+        var tail = new Queue<string>(capacity: 30);
+
+        var result = await _processRunner.RunAsync(
+            dotnetPath, args,
+            onLine: line =>
+            {
+                onLine?.Invoke(line);
+                if (line.Stream == ProcessStream.StdErr)
+                    _logger.LogWarning("dotnet[{Phase}]: {Line}", phase, line.Line);
+                else
+                    _logger.LogDebug("dotnet[{Phase}]: {Line}", phase, line.Line);
+
+                tail.Enqueue(line.Line);
+                if (tail.Count > 30) tail.Dequeue();
+            },
+            ct: ct
+        ).ConfigureAwait(false);
+
+        if (result.ExitCode != 0)
+        {
+            _logger.LogError(
+                "Restore {Phase} fehlgeschlagen (ExitCode {Code}). Letzte Ausgabe:\n{Tail}",
+                phase, result.ExitCode, string.Join('\n', tail));
+            return false;
+        }
         return true;
     }
 }

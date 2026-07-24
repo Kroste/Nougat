@@ -24,7 +24,13 @@ public sealed class AnchorProjectGenerator
                     new XElement("UseAppHost", "false"),
                     new XElement("EnableDefaultItems", "false"),
                     new XElement("NoBuild", "true"),
-                    new XElement("ManagePackageVersionsCentrally", "false")
+                    new XElement("ManagePackageVersionsCentrally", "false"),
+                    // Downgrade-/Vulnerability-/Deprecation-Warnings tolerieren:
+                    // Wir SAMMELN Pakete quer ueber Repos — bewusst mit widerspruechlichen
+                    // transitiven Anforderungen. Diese Widersprueche lost jedes echte
+                    // Zielprojekt selbst auf; wir wollen einfach alle .nupkg im Bundle haben.
+                    new XElement("TreatWarningsAsErrors", "false"),
+                    new XElement("NoWarn", "NU1605;NU1701;NU1902;NU1903;NU1904")
                 ),
                 CreateItemGroup(packages)
             )
